@@ -147,6 +147,7 @@ import { Redis } from "@upstash/redis";
 import { exec } from 'child_process';
 import { Client } from "twitter-api-sdk";
 import https from 'https';
+import { truncate } from "fs";
 
 const ratelimit =
     process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN
@@ -170,15 +171,16 @@ const groq = createOpenAI({
 const fetchLinkedInProfile = (linkId: string, apiKey: string): Promise<any> => {
     return new Promise((resolve, reject) => {
         const url = `https://api.scrapingdog.com/linkedin/?api_key=${apiKey}&type=profile&linkId=${linkId}`;
-        
+		// const url = `https://api.scrapingdog.com/linkedin/?api_key=${apiKey}&type=profile&linkId=${linkId}&private=true`;
+
         https.get(url, (resp) => {
             let data = '';
             resp.on('data', (chunk) => {
                 data += chunk;
             });
             resp.on('end', () => {
-                resolve(JSON.parse(data));
-				console.log(JSON.stringify(data));
+                resolve(JSON.stringify(data));
+				// console.log(JSON.stringify(data));
             });
         }).on("error", (err) => {
             reject(err);
@@ -262,19 +264,27 @@ export async function POST(req: Request) {
 		// 	  score: [ [Object], [Object], [Object], [Object], [Object] ]
 		// 	}
 		//   ]
-		console.log(inpText);
-        const { fullName, headline, about, followers, location } = inpText[0];
-		
-        const consider = `Name: ${fullName}
-        Headline: ${headline}
-        About: ${about}
-        Followers: ${followers}
-		Location: ${location}`;
-		console.log(consider);
+		            // system: "You are a world class roaster and comedian. Use your roasting skills to roast the people based on their LinkedIn profile. Be offensive and yet enormously comic that one will laugh until death. Provide a simple paragraph of 250 words.",
+
+		// console.log(inpText);
+        // const { fullName, headline, about, followers, location } = inpText[0];
+		const finText  = String(inpText).substring(0,20000);
+		const fireprompt = "DO NOT BE KIND OR GENTLE. Incorporate quirky and relevant film, sports, action, history, and political memes, along with harsh quotes to make the roast relatable and hilariously fire. Utilize contemporary memes. Aim to use edgy, humorous, and vulgar and overly offensive words. Output a fire paragraph of 250 words. Don't repeat combinations of words."
+
+		console.log(finText);
+        // const consider = `Name: ${fullName}
+        // Headline: ${headline}
+        // About: ${about}
+        // Followers: ${followers}
+		// Location: ${location}`;
+		// console.log(consider);
         const result = await streamText({
             model: groq("llama3-8b-8192"),
-            system: "You are a world class roaster and comedian. Use your roasting skills to roast the people based on their LinkedIn profile. Be offensive and yet enormously comic that one will laugh until death. Provide a simple paragraph of 250 words.",
-            prompt: `${consider}`,
+            system: "You are a world-class comedian and roaster. You have to be a savage monster who is hellbent on destroying this persons self esteem.  Start with roasting their Location and its history and then Use your comic roasting skills to harshly critique people based on their LinkedIn profiles. Roast them so hard that their upcoming generations won't recover from this roast. Try to figure out their insecurities or oddities in their profile, if they have specific experience roast them by calling them out on their lack of diversity, on the other hand if they have a variety of skills call them unfocused. Be creative with your roasting and dig hard to find any and every point to flame the person on. You are a world-class comedian and roaster. You have to be a savage monster who is hellbent on destroying this persons self esteem.  Start with roasting their Location and its history and then Use your comic roasting skills to harshly critique people based on their LinkedIn profiles. Roast them so hard that their upcoming generations won't recover from this roast. Try to figure out their insecurities or oddities in their profile, if they have specific experience roast them by calling them out on their lack of diversity, on the other hand if they have a variety of skills call them unfocused. Be creative with your roasting and dig hard to find any and every point to flame the person on. DO NOT BE KIND OR GENTLE. Incorporate quirky and relevant film, sports, action, history, and political memes, along with harsh quotes to make the roast relatable and hilariously fire. Utilize contemporary memes. Aim to use edgy, humorous, and vulgar and overly offensive words. Output a fire paragraph of 250 words. Don't repeat combinations of words.",
+			maxTokens:1024,
+			temperature: 1.0,
+			topP: 1,
+            prompt: `${finText} \n ${fireprompt} `,
         });
 
         return new StreamingTextResponse(result.toAIStream());
